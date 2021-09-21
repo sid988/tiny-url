@@ -16,6 +16,14 @@ const SA: User = {
     token: 'mhvXdrZT4jP5T8vBxuvm75'
 }
 
+const GUEST: User = {
+    id: 'GUEST',
+    email: 'guest@guest.guest',
+    name: 'Guest User',
+    role: UserRole.Guest,
+    token: 'No-Password-Required'
+}
+
 export enum UserActions {
     MinifyUrl = "minify-url",
     RedirectUrl = "redirect-url",
@@ -33,6 +41,10 @@ export type LoginUser = {
 export type AuthUser = LoginUser & { isAuthenticated: boolean, isAllowed: (op: UserActions) => boolean }
 
 const permissions: { [key in keyof typeof UserRole]?: Array<UserActions>} = {
+    Guest: [
+        UserActions.MinifyUrl,
+        UserActions.RedirectUrl,
+    ],
     Normal: [
         UserActions.MinifyUrl,
         UserActions.RedirectUrl,
@@ -57,9 +69,13 @@ const permissions: { [key in keyof typeof UserRole]?: Array<UserActions>} = {
 const decodeToken = (tokenKey: string, req: Request, next: NextFunction): Partial<User> => {
     let authUser: Partial<User> = undefined
     try {
-        const base64Auth = (req.headers.authorization || '').split(' ')[1] || ''
-        const [key, authToken] = Buffer.from(base64Auth, 'base64').toString().split(':')
-        authUser = jwt.verify(authToken, TOKEN_KEY) as Partial<User>
+        if (!req.headers.authorization) {
+            authUser = GUEST
+        } else {
+            const base64Auth = (req.headers.authorization || '').split(' ')[1] || ''
+            const [key, authToken] = Buffer.from(base64Auth, 'base64').toString().split(':')
+            authUser = jwt.verify(authToken, tokenKey) as Partial<User>    
+        }
     } catch (ex) {
         next(new Response500Error(ex.message))
     }
@@ -69,23 +85,25 @@ const decodeToken = (tokenKey: string, req: Request, next: NextFunction): Partia
 const auth = async (req: Request, res: Response, next: NextFunction): Promise<AuthUser> => {
     const { id } = req.params
     const authUser = decodeToken(TOKEN_KEY, req, next)
-    if (!authUser) return
+    // if (!authUser) return
 
-    let user: User
-    if (authUser.id === SA.id && authUser.email === SA.email) {
-        user = SA
-    }
+    // let user: User
+    // if (authUser.id === SA.id && authUser.email === SA.email) {
+    //     user = SA
+    // } else if (authUser.role == UserRole.Guest) {
+    //     user = GUEST
+    // }
     return {
-        id: user.id,
-        email: user.email,
-        role: user.role,
+        id: authUser.id,
+        email: authUser.email,
+        role: authUser.role,
         isAuthenticated: authUser !== undefined,
         isAllowed: (op: UserActions) => {
             let { userId } = req.params
-            if (userId && user.role === UserRole.Normal) {
+            if (userId && authUser.role === UserRole.Normal) {
                 return false
             }
-            const roleKey = UserRole.GetKey(user.role)
+            const roleKey = UserRole.GetKey(authUser.role)
             const permissionSet = permissions[roleKey]
             return permissionSet.includes(op)
         }

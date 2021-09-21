@@ -59,7 +59,7 @@ const decodeToken = (tokenKey: string, req: Request, next: NextFunction): Partia
     try {
         const base64Auth = (req.headers.authorization || '').split(' ')[1] || ''
         const [key, authToken] = Buffer.from(base64Auth, 'base64').toString().split(':')
-        authUser = jwt.verify(authToken, TOKEN_KEY) as Partial<User>
+        authUser = jwt.verify(authToken, tokenKey) as Partial<User>
     } catch (ex) {
         next(new Response500Error(ex.message))
     }
