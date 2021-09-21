@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from 'express'
 import { userDbHelper } from '../db/helpers'
 import { User } from '../db/entities/User'
 import { UserRole } from '../db/entities/UserRole'
-import { Response403Error } from './ResponseError'
+import { Response403Error, Response500Error } from './ResponseError'
 import jwt from 'jsonwebtoken'
 
 const TOKEN_KEY = '111111'
@@ -54,11 +54,22 @@ const permissions: { [key in keyof typeof UserRole]?: Array<UserActions>} = {
     ]
 }
 
-const auth = async (req: Request, res: Response): Promise<AuthUser> => {
+const decodeToken = (tokenKey: string, req: Request, next: NextFunction): Partial<User> => {
+    let authUser: Partial<User> = undefined
+    try {
+        const base64Auth = (req.headers.authorization || '').split(' ')[1] || ''
+        const [key, authToken] = Buffer.from(base64Auth, 'base64').toString().split(':')
+        authUser = jwt.verify(authToken, TOKEN_KEY) as Partial<User>
+    } catch (ex) {
+        next(new Response500Error(ex.message))
+    }
+    return authUser
+}
+
+const auth = async (req: Request, res: Response, next: NextFunction): Promise<AuthUser> => {
     const { id } = req.params
-    const base64Auth = (req.headers.authorization || '').split(' ')[1] || ''
-    const [key, authToken] = Buffer.from(base64Auth, 'base64').toString().split(':')
-    const authUser = jwt.verify(authToken, TOKEN_KEY) as Partial<User>
+    const authUser = decodeToken(TOKEN_KEY, req, next)
+    if (!authUser) return
 
     let user: User
     if (authUser.id === SA.id && authUser.email === SA.email) {
@@ -84,7 +95,10 @@ const auth = async (req: Request, res: Response): Promise<AuthUser> => {
 
 export const authWrapper = (op: UserActions, handler: (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => Promise<void>) => {
     return async (req: Request, res: Response, next: NextFunction) => {
-        const authResult = await auth(req, res)
+        const authResult = await auth(req, res, next)
+        if (!authResult) {
+            return
+        }
         if (authResult.isAuthenticated && authResult.isAllowed(op)) {
             await handler(authResult, req, res, next)
         } else {
@@ -114,6 +128,3 @@ export const createAuthToken = async (email: string, token: string) => {
         })    
     }
 }
-
-// eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlNBIiwiZW1haWwiOiJzYUBzYS5zYSIsInJvbGUiOiJzdXBlcmFkbWluIiwiaWF0IjoxNjMyMjEwMjEyLCJleHAiOjE2MzIzODMwMTJ9.8g3s33y-Uc82-HVX6CzkCs1OG0XVLtcj65G1MBfTkQA
-// jaya.chaudhary@gmail.com : h7BXEeunBqef9aCV66167H

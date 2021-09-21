@@ -1,10 +1,15 @@
 # tiny-url
 A url shortening service
 
+## How to run
+Run `docker compose up` command to run the services and setup the databases.
+
 ## Solution
-The idea here would be to have 2 microservices each for user management and url minification. For ease of user management we have a Super Admin user, who was full access to all the operations. For authentication purpose we will be making use of JWT tokens and Basic Authentication over both the services. Following will be the endpoints exposed by both the services:
+The idea here would be to have 2 microservices each for user management and url minification. For ease of user management we have a Super Admin user, who was full access to all the operations. For authentication purpose we will be making use of JWT tokens and Basic Authentication over both the services. Following are the endpoints exposed by both the services.
 
 ### user-service
+The service accessible on port 3000 i.e. http://localhost:3000
+
 - **POST** */users* - For adding a new user
     ```
         Basic Auth: token:<Token generated via login endpoint>
@@ -46,6 +51,8 @@ The idea here would be to have 2 microservices each for user management and url 
     ```
 
 ### url-service
+The service accessible on port 5000 i.e. http://localhost:5000
+
 - **POST** */url/minify* - For minification of a url
     ```
         Basic Auth: token:<Token generated via login endpoint>

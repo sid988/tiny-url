@@ -3,7 +3,7 @@ import { urlStatsDbHelper } from '../db/helpers'
 import { UrlStats } from '../db/entities/UrlStats'
 import { User } from '../db/entities/User'
 import { UserRole } from '../db/entities/UserRole'
-import { Response403Error } from './ResponseError'
+import { Response403Error, Response500Error } from './ResponseError'
 import jwt from 'jsonwebtoken'
 
 const TOKEN_KEY = '111111'
@@ -54,10 +54,22 @@ const permissions: { [key in keyof typeof UserRole]?: Array<UserActions>} = {
     ]
 }
 
-const auth = async (req: Request, res: Response): Promise<AuthUser> => {
-    const base64Auth = (req.headers.authorization || '').split(' ')[1] || ''
-    const [key, authToken] = Buffer.from(base64Auth, 'base64').toString().split(':')
-    const authUser = jwt.verify(authToken, TOKEN_KEY) as Partial<User>
+const decodeToken = (tokenKey: string, req: Request, next: NextFunction): Partial<User> => {
+    let authUser: Partial<User> = undefined
+    try {
+        const base64Auth = (req.headers.authorization || '').split(' ')[1] || ''
+        const [key, authToken] = Buffer.from(base64Auth, 'base64').toString().split(':')
+        authUser = jwt.verify(authToken, TOKEN_KEY) as Partial<User>
+    } catch (ex) {
+        next(new Response500Error(ex.message))
+    }
+    return authUser
+}
+
+const auth = async (req: Request, res: Response, next: NextFunction): Promise<AuthUser> => {
+    const { id } = req.params
+    const authUser = decodeToken(TOKEN_KEY, req, next)
+    if (!authUser) return
 
     let user: User
     if (authUser.id === SA.id && authUser.email === SA.email) {
@@ -82,7 +94,10 @@ const auth = async (req: Request, res: Response): Promise<AuthUser> => {
 
 export const authWrapper = (op: UserActions, handler: (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => Promise<void>) => {
     return async (req: Request, res: Response, next: NextFunction) => {
-        const authResult = await auth(req, res)
+        const authResult = await auth(req, res, next)
+        if (!authResult) {
+            return
+        }
         if (authResult.isAuthenticated && authResult.isAllowed(op)) {
             await handler(authResult, req, res, next)
         } else {

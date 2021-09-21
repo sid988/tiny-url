@@ -2,5 +2,5 @@
     "watch": ["src"],
     "ext": "ts",
     "ignore": ["src/**/*.spec.ts"],
-    "exec": "node --inspect-brk=9339 --nolazy -r ts-node/register/transpile-only src/index.ts"
+    "exec": "node --nolazy -r ts-node/register/transpile-only src/index.ts"
 }

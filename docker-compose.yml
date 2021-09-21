@@ -16,6 +16,7 @@ services:
   user-db:
     image: mongo:latest
     container_name: "user-db"
+    command: mongod --port 27017
     environment:
       - MONGO_DATA_DIR=/data/db
       - MONGO_LOG_DIR=/dev/null
@@ -41,6 +42,7 @@ services:
       - MONGODB_URL:mongodb://url-db:27018
   url-db:
     image: mongo:latest
+    command: mongod --port 27018
     container_name: "url-db"
     environment:
       - MONGO_DATA_DIR=/data/db
@@ -50,5 +52,5 @@ services:
     volumes:
       - ./data/url-db:/data/db
     ports:
-        - 27018:27017
+        - 27018:27018
     command: mongod --logpath=/dev/null # --quiet
