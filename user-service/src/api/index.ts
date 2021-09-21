@@ -1,6 +1,6 @@
 import { urlencoded, json } from 'body-parser'
 import express from 'express'
-import { addUser, findUser, findUsers, updateUser, deleteUser } from './users'
+import { addUser, findUser, findUsers, updateUser, deleteUser, loginUser } from './users'
 import { authWrapper, UserActions } from './auth'
 import { wwwPort } from '../env'
 import { ResponseError } from './ResponseError'
@@ -16,10 +16,11 @@ app.get("/ping", (req, res) => {
 })
 
 app.post("/users", authWrapper(UserActions.AddUser, addUser))
+app.post("/users/login", loginUser)
 app.post("/users/search", authWrapper(UserActions.ListUsers, findUsers))
-app.get("/user/:id", authWrapper(UserActions.ViewUser, findUser))
-app.patch("/user/:id", authWrapper(UserActions.UpdateUser, updateUser))
-app.delete("/user/:id", authWrapper(UserActions.DeleteUser, deleteUser))
+app.get("/users/:id", authWrapper(UserActions.ViewUser, findUser))
+app.patch("/users/:id", authWrapper(UserActions.UpdateUser, updateUser))
+app.delete("/users/:id", authWrapper(UserActions.DeleteUser, deleteUser))
 
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     let message: string, statusCode: number

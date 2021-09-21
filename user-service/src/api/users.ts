@@ -4,9 +4,10 @@ import { UserRole } from '../db/entities/UserRole'
 import { userDbHelper } from '../db/helpers'
 import { v1 } from 'uuid'
 import { wwwPath } from '../env'
-import { Response404Error, Response500Error } from './ResponseError'
+import { Response403Error, Response404Error, Response500Error } from './ResponseError'
 import { Ref } from './Ref'
 import short from 'short-uuid'
+import { createAuthToken, LoginUser } from './auth'
 
 const userExistsForId = async (user: Partial<User>) => {
     let userForId = await userDbHelper.getUser(user.id)
@@ -28,7 +29,9 @@ const validateSchema = async (user: Partial<User>, flags: Partial<{ [key in keyo
         const unwantedKeys = Object.getOwnPropertyNames(user).filter(key => {
             return !Object.getOwnPropertyNames(flags).includes(key)
         }).join('\', \'')
-        throw new Response500Error(`Expected an exact match, found unwanted keys '${unwantedKeys}'`)
+        if (unwantedKeys.length > 0) {
+            throw new Response500Error(`Expected an exact match, found unwanted keys '${unwantedKeys}'`)
+        }
     }
     for(const key of keys) {
         if (flags[key] && flags[key].required && !user[key]) {
@@ -49,7 +52,29 @@ const generateToken = () => {
     return translator.new().toString()
 }
 
-export const addUser = async (req: Request, res: Response, next: NextFunction) => {
+export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const user = req.body as User
+        await validateSchema(user, {
+            email: { required: true, type: 'string' },
+            token: { required: true, type: 'string' },
+        })
+        const authToken = await createAuthToken(user.email, user.token)
+        if (authToken) {
+            res.json({
+                authToken
+            })
+            res.status(200)
+            res.end()
+        } else {
+            throw new Response403Error('Login failed')
+        }
+    } catch (ex) {
+        next(ex)
+    }
+}
+
+export const addUser = async (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => {
     try {
         const user = req.body as User
         await validateSchema(user, {
@@ -77,7 +102,7 @@ export const addUser = async (req: Request, res: Response, next: NextFunction) =
     }
 }
 
-export const findUser = async (req: Request, res: Response, next: NextFunction) => {
+export const findUser = async (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
         await validateSchema({ id }, {
@@ -90,6 +115,7 @@ export const findUser = async (req: Request, res: Response, next: NextFunction) 
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                token: loginUser.role === UserRole.SuperAdmin ? user.token : undefined,
                 ref: `${wwwPath}/users/${user.id}`
             })
             res.status(200)
@@ -102,7 +128,7 @@ export const findUser = async (req: Request, res: Response, next: NextFunction) 
     }
 }
 
-export const findUsers = async (req: Request, res: Response, next: NextFunction) => {
+export const findUsers = async (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => {
     try {
         const query = req.body as User
         await validateSchema(query, {
@@ -117,6 +143,7 @@ export const findUsers = async (req: Request, res: Response, next: NextFunction)
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                token: loginUser.role === UserRole.SuperAdmin ? user.token : undefined,
                 ref: `${wwwPath}/users/${user.id}`
             })
         }
@@ -128,7 +155,7 @@ export const findUsers = async (req: Request, res: Response, next: NextFunction)
     }
 }
 
-export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
+export const updateUser = async (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
         delete req.body.role
@@ -147,6 +174,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                token: loginUser.role === UserRole.SuperAdmin ? user.token : undefined,
                 ref: `${wwwPath}/users/${user.id}`
             })
             res.status(200)
@@ -159,7 +187,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
     }
 }
 
-export const updateRole = async (req: Request, res: Response, next: NextFunction) => {
+export const updateRole = async (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
         const user = { ...req.body as User, id }
@@ -176,6 +204,7 @@ export const updateRole = async (req: Request, res: Response, next: NextFunction
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                token: loginUser.role === UserRole.SuperAdmin ? user.token : undefined,
                 ref: `${wwwPath}/users/${user.id}`
             })
             res.status(200)
@@ -188,7 +217,7 @@ export const updateRole = async (req: Request, res: Response, next: NextFunction
     }
 }
 
-export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteUser = async (loginUser: LoginUser, req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
         await validateSchema({ id }, {

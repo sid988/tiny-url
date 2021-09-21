@@ -73,7 +73,9 @@ export const createUserDbHelper = (mongoDbUrl: string, dbName: string) => {
     const updateUser = async (user: Partial<User>) => {
         const newValues = {
             $set: {
-                ...(user.name ? { name: user.name } : {})
+                ...(user.name ? { name: user.name } : {}),
+                ...(user.email ? { email: user.email } : {}),
+                ...(user.role ? { role: user.role } : {})
             }
         }
         let result: UpdateResult
