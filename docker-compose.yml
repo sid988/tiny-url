@@ -26,20 +26,20 @@ services:
     ports:
         - 27017:27017
     command: mongod --logpath=/dev/null # --quiet
-  # url-service:
-  #   build:
-  #     context: ./url-service
-  #     dockerfile: Dockerfile
-  #   container_name: "url-service"
-  #   depends_on: 
-  #     - url-db
-  #   ports:
-  #     - 5000:5000
-  #     - 9339:9339
-  #   environment:
-  #     - WWWPORT:5000
-  #     - MONGODB_URL:mongodb://localhost:27018
-  user-db:
+  url-service:
+    build:
+      context: ./url-service
+      dockerfile: Dockerfile
+    container_name: "url-service"
+    depends_on: 
+      - url-db
+    ports:
+      - 5000:5000
+      - 9339:9339
+    environment:
+      - WWWPORT:5000
+      - MONGODB_URL:mongodb://url-db:27018
+  url-db:
     image: mongo:latest
     container_name: "url-db"
     environment:
